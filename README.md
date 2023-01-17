@@ -1,7 +1,8 @@
-# Go Cheat Sheet
+# Go Highlevel Summary
 
 # Index
-- [Go Cheat Sheet](#go-cheat-sheet)
+
+- [Go Highlevel Summary](#go-highlevel-summary)
 - [Index](#index)
   - [Credits](#credits)
   - [Go in a Nutshell](#go-in-a-nutshell)
@@ -43,11 +44,11 @@
 - [Snippets](#snippets)
   - [Files Embedding](#files-embedding)
   - [HTTP Server](#http-server)
+  - [String Enum with Interface Printing](#string-enum-with-interface-printing)
 
 ## Credits
 
-Most example code taken from [A Tour of Go](http://tour.golang.org/), which is an excellent introduction to Go.
-If you're new to Go, do that tour. Seriously.
+This highlevel overview of Go is a fork from [a8m/golang-cheat-sheet](https://github.com/a8m/golang-cheat-sheet). I modified the content to include what I found difficult and confusing during my study. 
 
 ## Go in a Nutshell
 
@@ -56,13 +57,14 @@ If you're new to Go, do that tour. Seriously.
 * Syntax tokens similar to C (but less parentheses and no semicolons) and the structure to Oberon-2
 * Compiles to native code (no JVM)
 * No classes, but structs with methods
-* Interfaces
+* Interfaces which defines a collection of methods
 * No implementation inheritance. There's [type embedding](http://golang.org/doc/effective%5Fgo.html#embedding), though.
-* Functions are first class citizens
+* Functions are first class objects.
 * Functions can return multiple values
 * Has closures
-* Pointers, but not pointer arithmetic
+* Pointers, but no pointer arithmetic
 * Built-in concurrency primitives: Goroutines and Channels
+* Loosely coupled, orthogonality 
 
 # Basic Syntax
 
@@ -86,14 +88,20 @@ func main() {
 |`+`|addition|
 |`-`|subtraction|
 |`*`|multiplication|
-|`/`|quotient|
-|`%`|remainder|
+|`/`|division, returns integer portion when both operands are integer|
+|`%`|remainder, only with int type|
 |`&`|bitwise and|
 |`\|`|bitwise or|
-|`^`|bitwise xor|
-|`&^`|bit clear (and not)|
+|`^`|bitwise xor. Bitwise not when used as unary operator| 
+|`&^`|bitwise clear (and not),  n &^= (1 << pos)|
 |`<<`|left shift|
 |`>>`|right shift|
+
+The bitwise clear operator is equivalent to `p & (^q)`, where ^q is the bitwise not of q. 
+
+To clear the bit of n at position *pos*, `n &^ (1 << pos)` 
+
+To set a bit of n at position *pos*, `n | (1 << pos)`
 
 ### Comparison
 |Operator|Description|
@@ -137,7 +145,9 @@ float32 float64
 
 complex64 complex128
 
-Declared variables must be used at least once or it will trigger a panic.
+Declared variables must be used at least once or the compilation will fail.
+
+Use `_ := unused_variable` to pass compilation 
 ```go
 var foo int // declaration without initialization
 var foo int = 42 // declaration with initialization
@@ -152,24 +162,42 @@ const constant = "This is a constant"
 
 - The iota keyword represents successive **integer constants** 0, 1, 2,…
 - It resets to 0 whenever the word const appears in the source code, and increments after each const specification.
-- Even if iota appears again within the same const declaration, it does not change value.
+- Think of iota as a invisible counter (starting from 0) that is implicitly started with each const block and incremented with each statement
 
 Basic example
 
 ```go
 
 const (
-    C0 = 2              // 2, iota = 0 even if it does not appear in the first ConstSpec
-    C1 int = iota - 5   // 1 - 5 = -4 
+    C0 = 2              // 2, iota = 0 even if it does not appear in the first ConstSpec. If the first statement involves the blank variable, the expression cannot be omitted
+    C1 int = iota - 5   // 1 - 5 = -4
     C2 = iota + 10      // 2 + 10 = 12
     C3 = iota + 20      // 3 + 20 = 23
-    _                   // 4 is skipped
+    _                   // 4 is skipped, no expression needed
     C4 = iota - 30      // 5 - 30 = -25
     C5                  // repeat of the last ConstSpec, C5=iota - 30 = 6 - 30 = -24
     C6 = iota           // iota = 7
     )   
 
 ```
+Go has this feature of implicit repetition of the last non-empty expression. So it is possible to declare the following constants without much typing. 
+
+```go
+type ByteSize float64
+const (
+    _           = iota // ignore first value by assigning to blank identifier
+    KB ByteSize = 1 << (10 * iota)
+    MB
+    GB
+    TB
+    PB
+    EB
+    ZB
+    YB
+)
+```
+
+Constants are calculated at compilation time and therefore function calls are not permitted in the expression. 
 
 The idiomatic use case for iota is to create enum types with strings.
 
@@ -177,33 +205,8 @@ The idiomatic use case for iota is to create enum types with strings.
 - list its values using iota,
 - give the type a String function.
 
-```go
-type Direction int
+See snippet example at the end [String Enum](#string-enum-with-interface-printing)
 
-const (
-	North Direction = iota
-	East
-	South
-	West
-)
-
-func (d Direction) String() string {
-	return [...]string{"North", "East", "South", "West"}[d]
-}
-
-// In use
-var d Direction = North
-fmt.Print(d)
-switch d {
-case North:
-	fmt.Println(" goes up.")
-case South:
-	fmt.Println(" goes down.")
-default:
-	fmt.Println(" stays put.")
-}
-// Output: North goes up.
-```
 ## Functions
 ```go
 // a simple function
@@ -242,6 +245,7 @@ var x, str = returnMulti2()
 func main() {
     // assign a function to a name allows function nesting
     add := func(a, b int) int {     // var add = also works
+    // add is of type func(int, int) int
         return a + b
     }
     // use the name to call the function
@@ -249,17 +253,24 @@ func main() {
 }
 
 // Closures, lexically scoped: Functions can access values that were
-// in scope when defining the function
+// in scope when defining the function. Each instance of the returned function
+// retains its own version of outer_var
 func scope() func() int{    // returns a func with a return type int
     outer_var := 2
     foo := func() int { return outer_var}
     return foo
 }
 
-func another_scope() func() int{
-    // won't compile because outer_var and foo not defined in this scope
-    outer_var = 444
-    return foo
+type scopefun func() int
+
+funcs := make([]scopefun, 10)
+
+for i:=0;i<cap(funcs);i++{
+    funcs[i] = scope(i)
+}
+
+for i:=0;i<cap(funcs);i++{
+    fmt.Println(funcs[i]())  // Prints 0, 1, 2... 9
 }
 
 
@@ -484,15 +495,12 @@ var keyValueArray = [5]string{2: "Coffee", 4: "Tea"}
 
 ### Slices
 
-Slices are references to complete or partial arrays.
+- Slices are references to complete or partial arrays.
+- A slice is declared by var identifier[] type.
+- The length of a slice is the number of elements it contains.
+- The capacity of a slice is the number of elements in the underlying array. counting from the first element in the slice. 
+- The length and capacity of a slice s can be obtained using the expressions len(s) and cap(s). 
 
-A slide is declared by var identifier[] type.
-
-The length of a slice is the number of elements it contains.
-
-The capacity of a slice is the number of elements in the underlying array, counting from the first element in the slice. 
-
-The length and capacity of a slice s can be obtained using the expressions len(s) and cap(s). 
 ```go
 var a []int  // declare a slice - similar to an array, but length is 0 and values are nil
 var a = []int {1, 2, 3, 4}   // declare and initialize a slice (backed by the array given implicitly)
@@ -529,8 +537,8 @@ fmt.Println(c)  // [tea "" boba coffee vodka cider], c no longer references a
 c := append(a,b...)	// concatenate slices a and b
 
 // create a slice with make
-a := make([]byte, 5, 5)	// first arg length, second capacity
-a := make([]byte, 5)	// capacity is optional
+a := make([]byte, 5, 5)	// the first arg is length, the second is capacity
+a := make([]byte, 5)	// the arg capacity is optional
 
 // create a slice from an array
 x := [3]string{"Лайка", "Белка", "Стрелка"}
@@ -628,7 +636,7 @@ func (v *Vertex) add(n float64) { // notice no return type is declared after the
 
 ```
 **Anonymous structs:**
-Cheaper and safer than using `map[string]interface{}` if the structure of the JSON data is known beforehand. Only use map when dealing with unknown data structures.
+
 ```go
 point := struct {
 	X, Y int
@@ -649,21 +657,108 @@ var s *Vertex = new(Vertex) // new creates a pointer to a new struct instance
 ## Interfaces
 
 An interface type is defined as a set of method signatures.
-A value of interface type can hold any value that implements those methods.
- 
+A value of interface type can hold any value whose type implements those methods.
+
+Three components are needed to implement interface. 
+
+- an interface declaration
+- a custom type declaration 
+- a method belonging to the custom type which implements the methods declared under the interface
+- a function/method that takes the interface as one of its arguments. The function/method can directly invoke the interface methods inside its body.
+  
 ```go
 // interface declaration
-type Awesomizer interface {
-    Awesomize() string
+type SomeInterface interface {
+    SomeMethod() string
 }
 
-// types do *not* declare to implement interfaces
-type Foo struct {}
+// types do *not* need to declare to implement interfaces
+type T struct {}
 
 // instead, types implicitly satisfy an interface if they implement all required methods
-func (foo Foo) Awesomize() string {
-    return "Awesome!"
+func (v T) SomeMethod() string {
+    return "This is an interface!"
 }
+
+func SomeFunction(i SomeInterface){
+    //...
+}
+```
+Code snippet: implementing the stringer interface on a custom type based on Int.
+```go
+type MyInt int
+func (i MyInt) String() string {
+	str := fmt.Sprintf("An integer %d prints through the String interface ", i)
+	return str
+}
+
+var i MyInt
+for i=0;i<5;i++{
+
+    fmt.Println(i) 
+
+}
+// Output
+/*
+An integer 0 prints through the String interface 
+An integer 1 prints through the String interface 
+An integer 2 prints through the String interface 
+An integer 3 prints through the String interface 
+An integer 4 prints through the String interface 
+*/
+
+```
+
+Another example showing interface checking at runtime
+```go
+package main
+
+import (
+
+	"fmt"
+)
+
+
+type MyInt int
+type MyFloat float64
+
+type SomeInterface interface{
+	somemethod() string
+}
+
+func (i MyInt) somemethod() string {
+	str := fmt.Sprintf("An integer %d prints through the SomeMethod interface ", i)
+	return str
+}
+
+func (i MyFloat) somemethod() string {
+	str := fmt.Sprintf("An floating number %f prints through the SomeMethod interface ", i)
+	return str
+}
+
+
+func InterfaceMethod(v any) string{
+	i, ok := v.(SomeInterface)      // type assertion to get the underlying type of i
+	if ok{
+		return i.somemethod()       // now i holds the type SomeInterface and therefore have access to somemethod()
+	}else{
+		return fmt.Sprintf("Type %T does not implement SomeInterface", v)
+	}
+}
+
+func main() {
+
+	fmt.Println(InterfaceMethod(MyInt(5)))
+	fmt.Println(InterfaceMethod(MyFloat(4.455)))
+	fmt.Println(InterfaceMethod(4.5))   // won't compile 
+    // It won't compile if the signature of the function InterfaceMethod is (v SomeInterface) as float64 does not implement SomeInterface and therefore you can't pass a floating number to this method. 
+
+}
+
+// An integer 5 prints through the SomeMethod interface 
+// An floating number 4.455000 prints through the SomeMethod interface 
+// Type float64 does not implement SomeInterface
+
 ```
 
 ## Embedding
@@ -745,9 +840,28 @@ func main() {
     go func (x int) {
         // function body goes here
     }(42)
+
+    // either goroutine may not get executed before main exits. 
 }
 ```
 
+The proper way using a channel.
+
+```go
+unc main() {
+	done := make(chan bool)
+	values := []string{"a", "b", "c"}
+	for _, v := range values {
+		go func(u string) {
+			fmt.Println(u)
+			done <- true
+		}(v)
+	}
+	for range values {
+	    <-done
+	}
+
+```
 ## Channels
 ```go
 ch := make(chan int) // create a channel of type int
@@ -761,17 +875,17 @@ ch := make(chan int, 100)
 
 close(ch) // closes the channel (only sender should close)
 
-// read from channel and test if it has been closed
-v, ok := <-ch
+// read from channel and test if it has been closed. read from an open channel if all goroutines are asleep would cause a runtime error (deadlock)
+v, ok := <-ch   // won't cause a problem if the channel is closed
 
 // if ok is false, channel has been closed
 
-// Read from channel until it is closed
+// Read from channel until it is closed. Unclosed channel causes a runtime panic
 for i := range ch {
     fmt.Println(i)
 }
 
-// select blocks on multiple channel operations, if one unblocks, the corresponding case is executed
+// select blocks on multiple channel operations, if one unblocks, the corresponding case is executed. If multiple cases are ready, one would be selected randomly.
 func doStuff(channelOut, channelIn chan int) {
     select {
     case channelOut <- 42:
@@ -785,13 +899,16 @@ func doStuff(channelOut, channelIn chan int) {
 ```
 
 ### Channel Axioms
+
+[Channel Axioms](https://dave.cheney.net/2014/03/19/channel-axioms)
+
 - A send to a nil channel blocks forever
 
-  ```go
-  var c chan string
-  c <- "Hello, World!"
-  // fatal error: all goroutines are asleep - deadlock!
-  ```
+    ```go
+    var c chan string
+    c <- "Hello, World!"
+    // fatal error: all goroutines are asleep - deadlock!
+    ```
 - A receive from a nil channel blocks forever
 
   ```go
@@ -808,7 +925,9 @@ func doStuff(channelOut, channelIn chan int) {
   c <- "Hello, Panic!"
   // panic: send on closed channel
   ```
-- A receive from a closed channel returns the zero value immediately
+- A receive from a closed channel returns the zero value immediately. 
+  
+   `Implication: a closed channel will be selected immediately, and get nil value of the channel type. Thus may cause the other channels in the select never get selected.`
 
   ```go
   var c = make(chan int, 2)
@@ -914,5 +1033,35 @@ func main() {
 //     ServeHTTP(w http.ResponseWriter, r *http.Request)
 // }
 ```
+## String Enum with Interface Printing
 
+```go
+type Direction int
 
+const (
+	North Direction = iota
+	East
+	South
+	West
+)
+
+func (d Direction) String() string {
+	return [...]string{"North", "East", "South", "West"}[d]
+}
+
+// In use
+var d Direction = North
+fmt.Print(d)
+switch d {
+case North:
+	fmt.Println(" goes up.")
+case South:
+	fmt.Println(" goes down.")
+default:
+	fmt.Println(" stays put.")
+}
+// Output: North goes up.
+```
+
+Cheaper and safer than using `map[string]interface{}` if the structure of the JSON data is known beforehand. Only use map when dealing with unknown data structures.
+`interface{}` is equivalent to the keyword `any`.
