@@ -1,44 +1,48 @@
 # Go Cheat Sheet
 
 # Index
-1. [Basic Syntax](#basic-syntax)
-2. [Operators](#operators)
-    * [Arithmetic](#arithmetic)
-    * [Comparison](#comparison)
-    * [Logical](#logical)
-    * [Other](#other)
-3. [Declarations](#declarations)
-4. [Functions](#functions)
-    * [Functions as values and closures](#functions-as-values-and-closures)
-    * [Variadic Functions](#variadic-functions)
-5. [Built-in Types](#built-in-types)
-6. [Type Conversions](#type-conversions)
-7. [Packages](#packages)
-8. [Control structures](#control-structures)
-    * [If](#if)
-    * [Loops](#loops)
-    * [Switch](#switch)
-9. [Arrays, Slices, Ranges](#arrays-slices-ranges)
-    * [Arrays](#arrays)
-    * [Slices](#slices)
-    * [Operations on Arrays and Slices](#operations-on-arrays-and-slices)
-10. [Maps](#maps)
-11. [Structs](#structs)
-12. [Pointers](#pointers)
-13. [Interfaces](#interfaces)
-14. [Embedding](#embedding)
-15. [Errors](#errors)
-16. [Concurrency](#concurrency)
-    * [Goroutines](#goroutines)
-    * [Channels](#channels)
-    * [Channel Axioms](#channel-axioms)
-17. [Printing](#printing)
-18. [Reflection](#reflection)
-    * [Type Switch](#type-switch)
-    * [Examples](https://github.com/a8m/reflect-examples)
-19. [Snippets](#snippets)
-    * [Files Embedding](#files-embedding)
-    * [HTTP Server](#http-server)
+- [Go Cheat Sheet](#go-cheat-sheet)
+- [Index](#index)
+  - [Credits](#credits)
+  - [Go in a Nutshell](#go-in-a-nutshell)
+- [Basic Syntax](#basic-syntax)
+  - [Hello World](#hello-world)
+  - [Operators](#operators)
+    - [Arithmetic](#arithmetic)
+    - [Comparison](#comparison)
+    - [Logical](#logical)
+    - [Other](#other)
+  - [Declarations](#declarations)
+  - [iota](#iota)
+  - [Functions](#functions)
+    - [Functions As Values And Closures](#functions-as-values-and-closures)
+    - [Variadic Functions](#variadic-functions)
+  - [Type Conversions](#type-conversions)
+  - [Packages](#packages)
+  - [Control structures](#control-structures)
+    - [If](#if)
+    - [Loops](#loops)
+    - [Switch](#switch)
+  - [Arrays, Slices, Ranges](#arrays-slices-ranges)
+    - [Arrays](#arrays)
+    - [Slices](#slices)
+    - [Operations on Arrays and Slices](#operations-on-arrays-and-slices)
+  - [Maps](#maps)
+  - [Structs](#structs)
+  - [Pointers](#pointers)
+  - [Interfaces](#interfaces)
+  - [Embedding](#embedding)
+  - [Errors](#errors)
+- [Concurrency](#concurrency)
+  - [Goroutines](#goroutines)
+  - [Channels](#channels)
+    - [Channel Axioms](#channel-axioms)
+  - [Printing](#printing)
+  - [Reflection](#reflection)
+    - [Type Switch](#type-switch)
+- [Snippets](#snippets)
+  - [Files Embedding](#files-embedding)
+  - [HTTP Server](#http-server)
 
 ## Credits
 
@@ -117,6 +121,23 @@ func main() {
 
 ## Declarations
 Type goes after identifier!
+Go has the following built-in types.
+bool
+
+string
+
+int  int8  int16  int32  int64
+uint uint8 uint16 uint32 uint64 uintptr
+
+byte, alias for uint8   (**no char type**)
+
+rune, alias for int32, represents a Unicode code point
+
+float32 float64
+
+complex64 complex128
+
+Declared variables must be used at least once or it will trigger a panic.
 ```go
 var foo int // declaration without initialization
 var foo int = 42 // declaration with initialization
@@ -125,18 +146,64 @@ var foo = 42 // type omitted, will be inferred
 foo := 42 // shorthand, only in func bodies, omit var keyword, type is always implicit
 const constant = "This is a constant"
 
-// iota can be used for incrementing numbers, starting from 0
-const (
-    _ = iota
-    a
-    b
-    c = 1 << iota
-    d
-)
-    fmt.Println(a, b) // 1 2 (0 is skipped)
-    fmt.Println(c, d) // 8 16 (2^3, 2^4)
 ```
 
+## iota
+
+- The iota keyword represents successive **integer constants** 0, 1, 2,…
+- It resets to 0 whenever the word const appears in the source code, and increments after each const specification.
+- Even if iota appears again within the same const declaration, it does not change value.
+
+Basic example
+
+```go
+
+const (
+    C0 = 2              // 2, iota = 0 even if it does not appear in the first ConstSpec
+    C1 int = iota - 5   // 1 - 5 = -4 
+    C2 = iota + 10      // 2 + 10 = 12
+    C3 = iota + 20      // 3 + 20 = 23
+    _                   // 4 is skipped
+    C4 = iota - 30      // 5 - 30 = -25
+    C5                  // repeat of the last ConstSpec, C5=iota - 30 = 6 - 30 = -24
+    C6 = iota           // iota = 7
+    )   
+
+```
+
+The idiomatic use case for iota is to create enum types with strings.
+
+- create a new integer type,
+- list its values using iota,
+- give the type a String function.
+
+```go
+type Direction int
+
+const (
+	North Direction = iota
+	East
+	South
+	West
+)
+
+func (d Direction) String() string {
+	return [...]string{"North", "East", "South", "West"}[d]
+}
+
+// In use
+var d Direction = North
+fmt.Print(d)
+switch d {
+case North:
+	fmt.Println(" goes up.")
+case South:
+	fmt.Println(" goes down.")
+default:
+	fmt.Println(" stays put.")
+}
+// Output: North goes up.
+```
 ## Functions
 ```go
 // a simple function
@@ -155,7 +222,7 @@ func functionName() int {
 
 // Can return multiple values at once
 func returnMulti() (int, string) {
-    return 42, "foobar"
+    return 42, "foobar"  // can it return list or tuple?
 }
 var x, str = returnMulti()
 
@@ -173,8 +240,8 @@ var x, str = returnMulti2()
 ### Functions As Values And Closures
 ```go
 func main() {
-    // assign a function to a name
-    add := func(a, b int) int {
+    // assign a function to a name allows function nesting
+    add := func(a, b int) int {     // var add = also works
         return a + b
     }
     // use the name to call the function
@@ -183,7 +250,7 @@ func main() {
 
 // Closures, lexically scoped: Functions can access values that were
 // in scope when defining the function
-func scope() func() int{
+func scope() func() int{    // returns a func with a return type int
     outer_var := 2
     foo := func() int { return outer_var}
     return foo
@@ -197,20 +264,21 @@ func another_scope() func() int{
 
 
 // Closures
-func outer() (func() int, int) {
+func outer() (func() int, int) { // returns a function with a return type of int and an int
     outer_var := 2
     inner := func() int {
-        outer_var += 99 // outer_var from outer scope is mutated.
+        outer_var += 99 // outer_var from outer scope is changed.
         return outer_var
     }
     inner()
-    return inner, outer_var // return inner func and mutated outer_var 101
+    return inner, outer_var // return inner func and changed outer_var 101
 }
 ```
 
 ### Variadic Functions
 ```go
 func main() {
+    fmt.Println(adder())            // 0
 	fmt.Println(adder(1, 2, 3)) 	// 6
 	fmt.Println(adder(9, 9))	// 18
 
@@ -223,39 +291,24 @@ func main() {
 func adder(args ...int) int {
 	total := 0
 	for _, v := range args { // Iterates over the arguments whatever the number.
+        // the omitted variable is the sequence of the iteration
 		total += v
 	}
 	return total
 }
 ```
 
-## Built-in Types
-```go
-bool
-
-string
-
-int  int8  int16  int32  int64
-uint uint8 uint16 uint32 uint64 uintptr
-
-byte // alias for uint8
-
-rune // alias for int32 ~= a character (Unicode code point) - very Viking
-
-float32 float64
-
-complex64 complex128
-```
-
-All Go's predeclared identifiers are defined in the [builtin](https://golang.org/pkg/builtin/) package.  
-
 ## Type Conversions
+
+A wraparound happens when the value is converted to a data type that is too small to hold it. In the preceding example, the 8-bit data type int8 did not have enough space to hold the 64-bit variable big.
+
+
 ```go
 var i int = 42
 var f float64 = float64(i)
 var u uint = uint(f)
 
-// alternative syntax
+// alternative syntax, types are implicitly inferred
 i := 42
 f := float64(i)
 u := uint(f)
@@ -267,6 +320,22 @@ u := uint(f)
 * Convention: package name == last name of import path (import path `math/rand` => package `rand`)
 * Upper case identifier: exported (visible from other packages)
 * Lower case identifier: private (not visible from other packages)
+  
+```go
+type Days int
+
+const (
+    Monday Days = iota
+    Tuesday
+    Wednesday
+    Thursday
+    Friday
+    Saturday
+    Sunday
+    numOfDays // this identifier will not be exported as its first letter is in lower case 
+)
+
+```
 
 ## Control structures
 
@@ -292,6 +361,10 @@ func main() {
 	// Type assertion inside if
 	var val interface{} = "foo"
 	if str, ok := val.(string); ok {
+        // this is actually one statement before the condition "ok"
+        // str, ok := val.(string) will return the value of val and true
+        // if the interface val holds value of type string, it will return
+        // the string and true.
 		fmt.Println(str)
 	}
 }
@@ -300,17 +373,20 @@ func main() {
 ### Loops
 ```go
     // There's only `for`, no `while`, no `until`
-    for i := 1; i < 10; i++ {
+    for i := 1; i < 10; i++ {   
+        // no parentheses around the for statements
     }
-    for ; i < 10;  { // while - loop
+    i := 0
+    for ; i < 10;  { // while - loop, i still need to be declared first
     }
-    for i < 10  { // you can omit semicolons if there is only a condition
+    for i < 10  { // while loop, you can omit semicolons 
     }
-    for { // you can omit the condition ~ while (true)
+    for { // while (true), infinite loop
     }
     
     // use break/continue on current loop
     // use break/continue with label on outer loop
+
 here:
     for i := 0; i < 2; i++ {
         for j := i + 1; j < 3; j++ {
@@ -379,6 +455,14 @@ there:
 ## Arrays, Slices, Ranges
 
 ### Arrays
+The size, once declared, is fixed and cannot be extended or reduced once the compilation is completed. This defines its static nature. 
+
+Once an array is declared as an integer type (or any other numeric type, such as float, complex, byte, rune), each element is initialized with a default value of zero. The default value for a string type is “” (empty string) and for a bool, false. For types such as maps, channels, interfaces, and pointers, the default initialization is nil.
+
+Arrays are mutable and changeable by index.
+
+Arrays are passed by value.
+
 ```go
 var a [10]int // declare an int array with length 10. Array length is part of the type!
 a[3] = 42     // set elements
@@ -387,26 +471,66 @@ i := a[3]     // read elements
 // declare and initialize
 var a = [2]int{1, 2}
 a := [2]int{1, 2} //shorthand
-a := [...]int{1, 2} // elipsis -> Compiler figures out array length
+a := [...]int{1, 2} // elipsis is optional
+a := []int{1,2} // if elipsis is omitted, a slice is declared
+
+// Additionally, an array can be assigned like a key/value pair:
+
+var keyValueArray = [5]string{2: "Coffee", 4: "Tea"}
+// item 2 and 4 are initialized with the provided strings and the others are initialized to empty strings.
+// if a key larger than the maximum key is used, a panic will be triggered 
+
 ```
 
 ### Slices
+
+Slices are references to complete or partial arrays.
+
+A slide is declared by var identifier[] type.
+
+The length of a slice is the number of elements it contains.
+
+The capacity of a slice is the number of elements in the underlying array, counting from the first element in the slice. 
+
+The length and capacity of a slice s can be obtained using the expressions len(s) and cap(s). 
 ```go
-var a []int                              // declare a slice - similar to an array, but length is unspecified
-var a = []int {1, 2, 3, 4}               // declare and initialize a slice (backed by the array given implicitly)
-a := []int{1, 2, 3, 4}                   // shorthand
+var a []int  // declare a slice - similar to an array, but length is 0 and values are nil
+var a = []int {1, 2, 3, 4}   // declare and initialize a slice (backed by the array given implicitly)
+a := []string{2: "Coffee", 3: "Tea"} // declare and initialize a slice with a length and a cap of 4
+
 chars := []string{0:"a", 2:"c", 1: "b"}  // ["a", "b", "c"]
 
 var b = a[lo:hi]	// creates a slice (view of the array) from index lo to hi-1
 var b = a[1:4]		// slice from index 1 to 3
 var b = a[:3]		// missing low index implies 0
 var b = a[3:]		// missing high index implies len(a)
-a =  append(a,17,3)	// append items to slice a
+a =  append(a,17,3)	// append items to slice a. You can only append to a slice
+
+//The resulting value of append is a slice containing all the elements of the original slice plus the provided values. It will overwrite the items in the backing array provided the length of the slice is not greater than the capacity of the backing array
+//If the backing array of s is too small to fit all the given values a bigger array will be allocated. The returned slice will point to the newly allocated array.
+
+a := [5]string{0:"tea", 4:"vermont"}
+fmt.Println(a)  // ["tea", "", "", "", "vermont"]
+var b[] string = a[1:2]  
+fmt.Println(b)  // [""]
+fmt.Printf("len of a %d:, cap of a %d\n", len(a), cap(a))  //5, 5
+fmt.Printf("len of b %d:, cap of b %d\n", len(b), cap(b))  //1, 4
+b=append(b, "boba", "coffee", "wine")   // cap(b) - len(b) <=3, a is modified
+fmt.Println(a)  // ["tea", "", "boba", "coffee", "wine"]
+fmt.Println(b)  // ["", "boba", "coffee", "wine"], b is still a slice of a
+a[4] = "vodka"  // ["tea", "", "boba", "coffee", "vodka"]
+fmt.Println(b)  // ["", "boba", "coffee", "vodka"]
+
+var c[] string = a[:]
+c = append(c, "cider")
+fmt.Println(a)  // [tea "" boba coffee vodka]
+fmt.Println(c)  // [tea "" boba coffee vodka cider], c no longer references a
+
 c := append(a,b...)	// concatenate slices a and b
 
 // create a slice with make
-a = make([]byte, 5, 5)	// first arg length, second capacity
-a = make([]byte, 5)	// capacity is optional
+a := make([]byte, 5, 5)	// first arg length, second capacity
+a := make([]byte, 5)	// capacity is optional
 
 // create a slice from an array
 x := [3]string{"Лайка", "Белка", "Стрелка"}
@@ -441,20 +565,18 @@ for range time.Tick(time.Second) {
 
 ## Maps
 
+Maps are like dicts in Python and HashMap in Java.
+
 ```go
 m := make(map[string]int)
 m["key"] = 42
 fmt.Println(m["key"])
 
-delete(m, "key")
+delete(m, "key")    // In Python, dict.pop(key)
 
 elem, ok := m["key"] // test if key "key" is present and retrieve it, if so
+// this is more elegant than in Python, if key in dict:
 
-// map literal
-var m = map[string]Vertex{
-    "Bell Labs": {40.68433, -74.39967},
-    "Google":    {37.42202, -122.08408},
-}
 
 // iterate over map content
 for key, value := range m {
@@ -478,6 +600,12 @@ var v = Vertex{1, 2}
 var v = Vertex{X: 1, Y: 2} // Creates a struct by defining values with keys
 var v = []Vertex{{1,2},{5,2},{5,5}} // Initialize a slice of structs
 
+// map literal of struct
+var m = map[string]Vertex{
+    "Bell Labs": {40.68433, -74.39967},
+    "Google":    {37.42202, -122.08408},
+}
+
 // Accessing members
 v.X = 4
 
@@ -491,16 +619,16 @@ func (v Vertex) Abs() float64 {
 // Call method
 v.Abs()
 
-// For mutating methods, you need to use a pointer (see below) to the Struct
+// For methods that modify a Struct, you need to use a pointer (see below) to the Struct
 // as the type. With this, the struct value is not copied for the method call.
-func (v *Vertex) add(n float64) {
+func (v *Vertex) add(n float64) { // notice no return type is declared after the function name as the function does not return anything
     v.X += n
     v.Y += n
 }
 
 ```
 **Anonymous structs:**
-Cheaper and safer than using `map[string]interface{}`.
+Cheaper and safer than using `map[string]interface{}` if the structure of the JSON data is known beforehand. Only use map when dealing with unknown data structures.
 ```go
 point := struct {
 	X, Y int
@@ -519,6 +647,10 @@ var s *Vertex = new(Vertex) // new creates a pointer to a new struct instance
 ```
 
 ## Interfaces
+
+An interface type is defined as a set of method signatures.
+A value of interface type can hold any value that implements those methods.
+ 
 ```go
 // interface declaration
 type Awesomizer interface {
